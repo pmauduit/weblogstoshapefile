@@ -12,7 +12,7 @@ VALGRIND=$(shell which valgrind)
 STRIP=$(shell which strip)
 
 CFLAGS=-Wall -I/usr/include/gdal/ -g
-LDFLAGS=-lgdal
+LDFLAGS=-lgdal -lGeoIP
 
 .PHONY: clean
 

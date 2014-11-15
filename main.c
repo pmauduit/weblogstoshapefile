@@ -1,5 +1,6 @@
 #include <stdlib.h>
-#include <gdal/gdal.h>
+#include <gdal.h>
+#include <GeoIP.h>
 
 int main(int argc, char **argv) {
 
