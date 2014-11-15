@@ -1,3 +1,6 @@
+# generated binary
+parser
+
 # Object files
 *.o
 *.ko
