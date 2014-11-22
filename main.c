@@ -5,6 +5,14 @@
 
 #include <gdal.h>
 #include <GeoIP.h>
+#include <GeoIPCity.h>
+
+/* inspired from the example
+ * see https://github.com/maxmind/geoip-api-c/blob/master/test/test-geoip-city.c */
+
+// Debian provided file is not the City one, see README.md
+// #define GEOIP_PATH "/usr/share/GeoIP/GeoIP.dat"
+#define GEOIP_PATH "GeoLiteCity.dat"
 
 int main(int argc, char **argv) {
 
@@ -14,6 +22,14 @@ int main(int argc, char **argv) {
   }
 
   int i;
+  GeoIP *gi;
+
+  gi = GeoIP_open(GEOIP_PATH, GEOIP_INDEX_CACHE);
+
+  if (gi == NULL) {
+    fprintf(stderr, "Unable to open GeoIP database\n");
+    return 1;
+  }
 
   for (i = 1; i < argc ; i++) {
     char * line = NULL;
@@ -41,9 +57,20 @@ int main(int argc, char **argv) {
       token = strtok_r(line, " ", &saveptr);
       if (token == NULL)
         continue;
-
+      int current_token = 0;
       do {
         //fprintf(stdout, "token: \t%s\n", token);
+
+        // IP address geographic lookup
+        if (current_token == 0) {
+          GeoIPRecord *gir = NULL;
+          gir = GeoIP_record_by_addr(gi, (const char *) token);
+          if (gir != NULL) {
+            fprintf(stdout, "\t%s located in %f:%f\n", token, gir->latitude, gir->longitude);
+            GeoIPRecord_delete(gir);
+          }
+        }
+        current_token ++;
       } while ((token = strtok_r(NULL, " ", &saveptr)) != NULL);
     }
 
@@ -55,6 +82,8 @@ int main(int argc, char **argv) {
     fclose(curfile);
   }
 
+  // Releasing GeoIP resources
+  GeoIP_delete(gi);
   return 0;
 }
 
