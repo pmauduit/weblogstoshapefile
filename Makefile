@@ -11,8 +11,8 @@ GDB=$(shell which gdb)
 VALGRIND=$(shell which valgrind)
 STRIP=$(shell which strip)
 
-CFLAGS=-Wall -I/usr/include/gdal/ -g
-LDFLAGS=-lgdal -lGeoIP
+CFLAGS=-Wall -I/usr/include/gdal/ -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -g
+LDFLAGS=-lgdal -lGeoIP -lglib-2.0
 
 .PHONY: clean
 

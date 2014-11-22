@@ -3,6 +3,8 @@
 #include <string.h>
 #include <sys/time.h>
 
+#include <glib.h>
+
 #include <gdal.h>
 #include <GeoIP.h>
 #include <GeoIPCity.h>
@@ -14,9 +16,35 @@
 // #define GEOIP_PATH "/usr/share/GeoIP/GeoIP.dat"
 #define GEOIP_PATH "GeoLiteCity.dat"
 
+struct ght_data_struct {
+  char * ip; // also in the key
+  char * city; // provided by MaxMind db
+  unsigned int frequency; // number of hits
+  float lat,lon;
+};
+
+void ght_print_elem(gpointer k, gpointer v, gpointer user_data) {
+  struct ght_data_struct * d = (struct ght_data_struct *) v;
+  fprintf(stdout, "Element\n\tip: %s\n\tcity: %s\n\tfreq: %d\n\tcoords: (%.4f:%.4f)\n\n",
+      d->ip, d->city, d->frequency, d->lat, d->lon);
+}
+
+void ght_destroy_key(gpointer data) {
+  // key is a simple char * allocated using strdup()
+  //free(data);
+}
+
+// value can contain more attributes in the future
+void ght_destroy_value(gpointer data) {
+  struct ght_data_struct * d = (struct ght_data_struct *) data;
+  free(d->ip);
+  free(d->city);
+  free(data);
+}
+
 int main(int argc, char **argv) {
 
-  if (argc < 1) {
+  if (argc <= 1) {
     fprintf(stdout, "Usage: %s access.log [access.log.1 ...]\n", argv[0]);
     return 0;
   }
@@ -24,7 +52,14 @@ int main(int argc, char **argv) {
   int i;
   GeoIP *gi;
 
+  GHashTable* ip_hash = NULL;
+
+  ip_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
+      ght_destroy_key, ght_destroy_value);
+
   gi = GeoIP_open(GEOIP_PATH, GEOIP_INDEX_CACHE);
+  GeoIP_set_charset(gi, GEOIP_CHARSET_UTF8);
+
 
   if (gi == NULL) {
     fprintf(stderr, "Unable to open GeoIP database\n");
@@ -66,7 +101,19 @@ int main(int argc, char **argv) {
           GeoIPRecord *gir = NULL;
           gir = GeoIP_record_by_addr(gi, (const char *) token);
           if (gir != NULL) {
-            fprintf(stdout, "\t%s located in %f:%f\n", token, gir->latitude, gir->longitude);
+            struct ght_data_struct * data = g_hash_table_lookup(ip_hash,
+                token);
+            if (data == NULL) {
+              struct ght_data_struct * nd = malloc(sizeof(struct ght_data_struct));
+              nd->ip = strdup(token);
+              nd->city = strdup(gir->city != NULL ? gir->city : "N/A");
+              nd->lat = gir->latitude;
+              nd->lon = gir->longitude;
+              nd->frequency = 1;
+              g_hash_table_insert(ip_hash, token, nd);
+            }
+            else data->frequency++;
+
             GeoIPRecord_delete(gir);
           }
         }
@@ -78,12 +125,19 @@ int main(int argc, char **argv) {
     gettimeofday(&tval_after, NULL);
     timersub(&tval_after, &tval_before, &tval_result);
 
-    fprintf(stdout, "%d lines parsed in %ld.%06ld seconds\n", numline, (long int)tval_result.tv_sec, (long int)tval_result.tv_usec);
+    fprintf(stdout, "%d lines parsed in %ld.%06ld seconds\n",
+        numline, (long int)tval_result.tv_sec,
+        (long int)tval_result.tv_usec);
     fclose(curfile);
+
+
   }
 
   // Releasing GeoIP resources
   GeoIP_delete(gi);
+
+  g_hash_table_foreach(ip_hash, ght_print_elem, NULL);
+  g_hash_table_destroy(ip_hash);
   return 0;
 }
 
