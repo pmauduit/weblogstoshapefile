@@ -5,7 +5,7 @@
 
 #include <glib.h>
 
-#include <gdal.h>
+#include <ogr_api.h>
 #include <GeoIP.h>
 #include <GeoIPCity.h>
 
@@ -15,6 +15,9 @@
 // Debian provided file is not the City one, see README.md
 // #define GEOIP_PATH "/usr/share/GeoIP/GeoIP.dat"
 #define GEOIP_PATH "GeoLiteCity.dat"
+
+// OGR driver name (by default ESRI shapefile)
+#define OGR_DRIVER "ESRI Shapefile"
 
 struct ght_data_struct {
   char * ip; // also in the key
@@ -59,6 +62,13 @@ int main(int argc, char **argv) {
 
   gi = GeoIP_open(GEOIP_PATH, GEOIP_INDEX_CACHE);
   GeoIP_set_charset(gi, GEOIP_CHARSET_UTF8);
+
+  // init GDAL/OGR
+  OGRRegisterAll();
+  //for (i = 0; i < OGRGetDriverCount(); ++i) {
+  // OGRSFDriverH d = OGRGetDriver(i);
+  // fprintf(stdout, "driver name %s\n", OGR_Dr_GetName(d));
+  //}
 
 
   if (gi == NULL) {
@@ -136,8 +146,16 @@ int main(int argc, char **argv) {
   // Releasing GeoIP resources
   GeoIP_delete(gi);
 
-  g_hash_table_foreach(ip_hash, ght_print_elem, NULL);
+  //g_hash_table_foreach(ip_hash, ght_print_elem, NULL);
+  //g_hash_table_foreach(ip_hash, ght_generate_feature_set, NULL);
   g_hash_table_destroy(ip_hash);
+
+  // de-register ogr
+  for (i = 0; i < OGRGetDriverCount(); ++i) {
+    OGRSFDriverH d = OGRGetDriver(i);
+    OGRDeregisterDriver(d);
+  }
+  
   return 0;
 }
 
