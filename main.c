@@ -26,10 +26,42 @@ struct ght_data_struct {
   float lat,lon;
 };
 
+// Used for debugging purposes
+// Just prints out the ght_data_struct
 void ght_print_elem(gpointer k, gpointer v, gpointer user_data) {
   struct ght_data_struct * d = (struct ght_data_struct *) v;
   fprintf(stdout, "Element\n\tip: %s\n\tcity: %s\n\tfreq: %d\n\tcoords: (%.4f:%.4f)\n\n",
       d->ip, d->city, d->frequency, d->lat, d->lon);
+}
+
+// Builds the features given the elements of the list
+void ght_generate_feature_set(gpointer k, gpointer v, gpointer user_data) {
+
+  // user_data is our layer
+  OGRLayerH l = (OGRLayerH) user_data;
+  // v is our value
+  struct ght_data_struct * value = (struct ght_data_struct *) v;
+
+  OGRFeatureH feat;
+  OGRGeometryH geompoint;
+
+  feat = OGR_F_Create(OGR_L_GetLayerDefn(l));
+  OGR_F_SetFieldString(feat, OGR_F_GetFieldIndex(feat, "ip"), value->ip);
+  OGR_F_SetFieldString(feat, OGR_F_GetFieldIndex(feat, "city"), value->city);
+  OGR_F_SetFieldInteger(feat, OGR_F_GetFieldIndex(feat, "frequency"), value->frequency);
+
+  geompoint = OGR_G_CreateGeometry(wkbPoint);
+  OGR_G_SetPoint_2D(geompoint, 0, value->lon, value->lat);
+
+  OGR_F_SetGeometry(feat, geompoint);
+  OGR_G_DestroyGeometry(geompoint);
+
+  if( OGR_L_CreateFeature(l, feat) != OGRERR_NONE)
+  {
+    fprintf(stderr,"Failed to create feature in shapefile.\n");
+    abort();
+  }
+  OGR_F_Destroy(feat);
 }
 
 void ght_destroy_key(gpointer data) {
@@ -143,19 +175,65 @@ int main(int argc, char **argv) {
 
   }
 
-  // Releasing GeoIP resources
-  GeoIP_delete(gi);
-
   //g_hash_table_foreach(ip_hash, ght_print_elem, NULL);
-  //g_hash_table_foreach(ip_hash, ght_generate_feature_set, NULL);
+
+  // Clearly not portable, but bleh.
+  system("rm -rf ./out/");
+
+  OGRSFDriverH driver = OGRGetDriverByName(OGR_DRIVER);
+  if(driver == NULL)
+  {
+    fprintf(stderr, "%s driver not available.\n", OGR_DRIVER);
+    abort();
+  }
+
+  OGRDataSourceH datasource = OGR_Dr_CreateDataSource(driver, "out", NULL);
+  if(datasource == NULL)
+  {
+    fprintf(stderr, "Creation of output file failed.\n");
+    abort();
+  }
+
+  OGRLayerH layer = OGR_DS_CreateLayer(datasource, "out", NULL, wkbPoint, NULL );
+  if(layer == NULL)
+  {
+    fprintf(stderr, "Layer creation failed.\n");
+    abort();
+  }
+
+  OGRFieldDefnH ipfield = OGR_Fld_Create("ip", OFTString);
+  OGRFieldDefnH cityfield = OGR_Fld_Create("city", OFTString);
+  OGRFieldDefnH freqfield = OGR_Fld_Create("frequency", OFTInteger);
+
+  if ((OGR_L_CreateField(layer, ipfield,   TRUE) != OGRERR_NONE) ||
+      (OGR_L_CreateField(layer, cityfield, TRUE) != OGRERR_NONE) ||
+      (OGR_L_CreateField(layer, freqfield, TRUE) != OGRERR_NONE))
+  {
+    fprintf(stderr,"Creating fields failed.\n");
+    abort();
+  }
+
+  OGR_Fld_Destroy(ipfield);
+  OGR_Fld_Destroy(cityfield);
+  OGR_Fld_Destroy(freqfield);
+
+  g_hash_table_foreach(ip_hash, ght_generate_feature_set, layer);
+
+
+  OGR_DS_SyncToDisk(datasource);
+  OGRReleaseDataSource(datasource);
+
+  // Releasing elements from the hashmap
   g_hash_table_destroy(ip_hash);
 
+  // Releasing GeoIP resources
+  GeoIP_delete(gi);
   // de-register ogr
   for (i = 0; i < OGRGetDriverCount(); ++i) {
     OGRSFDriverH d = OGRGetDriver(i);
     OGRDeregisterDriver(d);
   }
-  
+
   return 0;
 }
 
