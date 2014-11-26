@@ -6,6 +6,8 @@
 #include <glib.h>
 
 #include <ogr_api.h>
+#include <ogr_srs_api.h>
+
 #include <GeoIP.h>
 #include <GeoIPCity.h>
 
@@ -222,6 +224,19 @@ int main(int argc, char **argv) {
 
   OGR_DS_SyncToDisk(datasource);
   OGRReleaseDataSource(datasource);
+
+  // generates the prj
+  char * prjContent = NULL;
+  FILE * prjFile = NULL;
+  OGRSpatialReferenceH srs = OSRNewSpatialReference(NULL);
+  OSRImportFromEPSG(srs, 4326);
+  OSRMorphToESRI(srs);
+  OSRExportToWkt(srs, &prjContent);
+  prjFile = fopen("out/out.prj", "w");
+  fwrite(prjContent, strlen(prjContent), 1, prjFile);
+  fclose(prjFile);
+  free(prjContent);
+
 
   // Releasing elements from the hashmap
   g_hash_table_destroy(ip_hash);
