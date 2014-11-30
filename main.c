@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     ssize_t read;
     FILE  * curfile = NULL;
 
-    fprintf(stdout, "Parsing %s ...\n", argv[1]);
+    fprintf(stdout, "Parsing %s ...\n", argv[i]);
 
     curfile = fopen(argv[i], "r");
 
