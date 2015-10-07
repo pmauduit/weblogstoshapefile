@@ -24,6 +24,7 @@
 struct ght_data_struct {
   char * ip; // also in the key
   char * city; // provided by MaxMind db
+  char * user_agent;
   unsigned int frequency; // number of hits
   float lat,lon;
 };
@@ -32,8 +33,8 @@ struct ght_data_struct {
 // Just prints out the ght_data_struct
 void ght_print_elem(gpointer k, gpointer v, gpointer user_data) {
   struct ght_data_struct * d = (struct ght_data_struct *) v;
-  fprintf(stdout, "Element\n\tip: %s\n\tcity: %s\n\tfreq: %d\n\tcoords: (%.4f:%.4f)\n\n",
-      d->ip, d->city, d->frequency, d->lat, d->lon);
+  fprintf(stdout, "Element\n\tip: %s\n\tcity: %s\n\tuser_agent: %s\n\tfreq: %d\n\tcoords: (%.4f:%.4f)\n\n",
+      d->ip, d->city, d->user_agent, d->frequency, d->lat, d->lon);
 }
 
 // Builds the features given the elements of the list
@@ -50,6 +51,7 @@ void ght_generate_feature_set(gpointer k, gpointer v, gpointer user_data) {
   feat = OGR_F_Create(OGR_L_GetLayerDefn(l));
   OGR_F_SetFieldString(feat, OGR_F_GetFieldIndex(feat, "ip"), value->ip);
   OGR_F_SetFieldString(feat, OGR_F_GetFieldIndex(feat, "city"), value->city);
+  OGR_F_SetFieldString(feat, OGR_F_GetFieldIndex(feat, "user_agent"), value->user_agent);
   OGR_F_SetFieldInteger(feat, OGR_F_GetFieldIndex(feat, "frequency"), value->frequency);
 
   geompoint = OGR_G_CreateGeometry(wkbPoint);
@@ -75,6 +77,7 @@ void ght_destroy_key(gpointer data) {
 void ght_destroy_value(gpointer data) {
   struct ght_data_struct * d = (struct ght_data_struct *) data;
   free(d->ip);
+  free(d->user_agent);
   free(d->city);
   free(data);
 }
@@ -138,8 +141,7 @@ int main(int argc, char **argv) {
         continue;
       int current_token = 0;
       do {
-        //fprintf(stdout, "token: \t%s\n", token);
-
+        //fprintf(stdout, "current token %d: %s\n", current_token, token);
         // IP address geographic lookup
         if (current_token == 0) {
           GeoIPRecord *gir = NULL;
@@ -162,6 +164,7 @@ int main(int argc, char **argv) {
           }
         }
         current_token ++;
+        // TODO: the UA seems to begin at token 11
       } while ((token = strtok_r(NULL, " ", &saveptr)) != NULL);
     }
 
