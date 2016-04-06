@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
 
   //g_hash_table_foreach(ip_hash, ght_print_elem, NULL);
 
-  // Clearly not portable, but bleh.
+  // Clearly not portable, but bleh ...
   system("rm -rf ./out/");
 
   OGRSFDriverH driver = OGRGetDriverByName(OGR_DRIVER);
